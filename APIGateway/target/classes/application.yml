@@ -1,0 +1,161 @@
+server:
+  port: 8233
+
+spring:
+  application:
+    name: api-gateway
+  
+  cloud:
+    gateway:
+      routes:
+        # Authentication Service Routes
+        - id: auth-service
+          uri: http://localhost:8009
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: auth-service-cb
+                fallbackUri: forward:/fallback/auth
+            - name: Retry
+              args:
+                retries: 3
+                methods: GET,POST
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
+        
+        # Session Manager Service Routes
+        - id: session-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/session/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: session-service-cb
+                fallbackUri: forward:/fallback/session
+            - name: Retry
+              args:
+                retries: 3
+                methods: GET,POST,PUT,DELETE
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
+            - name: AuthenticationFilter
+        
+        # Health Check Routes
+        - id: health-route
+          uri: lb://api-gateway
+          predicates:
+            - Path=/actuator/health
+          filters:
+            - StripPrefix=0
+      
+      # Global CORS configuration
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:8233"
+              - "http://localhost:8081"
+              - "http://localhost:8082"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      # Discovery locator configuration (disabled for local development)
+      discovery:
+        locator:
+          enabled: false
+          lowerCaseServiceId: true
+
+  # Redis configuration for rate limiting (disabled for local development)
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+# Eureka configuration (disabled for local development)
+eureka:
+  client:
+    enabled: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: false
+    fetch-registry: false
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# JWT Configuration
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    com.example.apigateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    root: INFO
+
+# Resilience4j circuit breaker configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      auth-service-cb:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+      session-service-cb:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+  
+  retry:
+    instances:
+      auth-service:
+        max-attempts: 3
+        wait-duration: 100ms
+      session-service:
+        max-attempts: 3
+        wait-duration: 100ms
+
+# Rate limiting configuration
+rate-limit:
+  replenish-rate: 10
+  burst-capacity: 20
+  requested-tokens: 1 

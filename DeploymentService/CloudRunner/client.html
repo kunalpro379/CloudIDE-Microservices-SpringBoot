@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Cloud IDE Client</title>
+     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+     <style>
+          * {
+               margin: 0;
+               padding: 0;
+               box-sizing: border-box;
+          }
+
+          body {
+               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               background: #1e1e1e;
+               color: #d4d4d4;
+               height: 100vh;
+               display: flex;
+               flex-direction: column;
+          }
+
+          .header {
+               background: #2d2d30;
+               padding: 1rem;
+               border-bottom: 1px solid #3e3e42;
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+          }
+
+          .server-config {
+               display: flex;
+               gap: 1rem;
+               align-items: center;
+          }
+
+          .server-config input {
+               background: #3c3c3c;
+               border: 1px solid #5a5a5a;
+               color: #d4d4d4;
+               padding: 0.5rem;
+               border-radius: 3px;
+               width: 200px;
+          }
+
+          .container {
+               display: flex;
+               flex: 1;
+               overflow: hidden;
+          }
+
+          .sidebar {
+               width: 300px;
+               background: #252526;
+               border-right: 1px solid #3e3e42;
+               padding: 1rem;
+               overflow-y: auto;
+          }
+
+          .main-content {
+               flex: 1;
+               display: flex;
+               flex-direction: column;
+          }
+
+          .editor-area {
+               flex: 1;
+               background: #1e1e1e;
+               position: relative;
+               overflow: hidden;
+          }
+
+          .terminal-area {
+               height: 300px;
+               background: #0c0c0c;
+               border-top: 1px solid #3e3e42;
+               padding: 0.5rem;
+               overflow-y: auto;
+               font-family: 'Courier New', monospace;
+          }
+
+          .file-tree {
+               margin-bottom: 1rem;
+          }
+
+          .file-item {
+               padding: 0.25rem 0.5rem;
+               cursor: pointer;
+               user-select: none;
+               border-radius: 3px;
+          }
+
+          .file-item:hover {
+               background: #2a2d2e;
+          }
+
+          .file-item.selected {
+               background: #094771;
+          }
+
+          .terminal-output {
+               white-space: pre-wrap;
+               font-size: 14px;
+               line-height: 1.4;
+               height: calc(100% - 30px);
+               overflow-y: auto;
+          }
+
+          .terminal-input {
+               width: 100%;
+               background: transparent;
+               border: none;
+               color: #d4d4d4;
+               font-family: 'Courier New', monospace;
+               font-size: 14px;
+               outline: none;
+               margin-top: 0.5rem;
+          }
+
+          .status-bar {
+               padding: 0.5rem;
+               font-size: 12px;
+          }
+
+          .status-bar.connected {
+               background: #16825d;
+               color: white;
+          }
+
+          .status-bar.disconnected {
+               background: #d73a49;
+               color: white;
+          }
+
+          .status-bar.connecting {
+               background: #e36209;
+               color: white;
+          }
+
+          .editor-content {
+               width: 100%;
+               height: 100%;
+               background: #1e1e1e;
+               color: #d4d4d4;
+               border: none;
+               resize: none;
+               font-family: 'Courier New', monospace;
+               font-size: 14px;
+               line-height: 1.5;
+               padding: 1rem;
+               outline: none;
+          }
+
+          .project-controls {
+               margin-bottom: 1rem;
+               padding-bottom: 1rem;
+               border-bottom: 1px solid #3e3e42;
+          }
+
+          .control-group {
+               margin-bottom: 0.5rem;
+          }
+
+          .control-group label {
+               display: block;
+               margin-bottom: 0.25rem;
+               font-size: 12px;
+               color: #969696;
+          }
+
+          .control-group input {
+               width: 100%;
+               background: #3c3c3c;
+               border: 1px solid #5a5a5a;
+               color: #d4d4d4;
+               padding: 0.5rem;
+               border-radius: 3px;
+          }
+
+          .btn {
+               background: #0e639c;
+               color: white;
+               border: none;
+               padding: 0.5rem 1rem;
+               border-radius: 3px;
+               cursor: pointer;
+               font-size: 12px;
+               transition: background 0.2s;
+          }
+
+          .btn:hover {
+               background: #1177bb;
+          }
+
+          .btn:disabled {
+               background: #666;
+               cursor: not-allowed;
+          }
+
+          .btn-sm {
+               padding: 0.25rem 0.5rem;
+               font-size: 11px;
+          }
+
+          .server-info {
+               font-size: 11px;
+               color: #969696;
+               margin-top: 0.5rem;
+               padding: 0.5rem;
+               background: #2d2d30;
+               border-radius: 3px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="header">
+          <h1>🚀 Cloud IDE Client</h1>
+          <div class="server-config">
+               <input type="text" id="serverUrl" placeholder="ws://localhost:3000" value="ws://localhost:3000">
+               <button class="btn" id="connectBtn" onclick="connectToServer()">Connect</button>
+          </div>
+     </div>
+
+     <div class="status-bar connecting" id="status">Not connected</div>
+
+     <div class="container">
+          <div class="sidebar">
+               <div class="project-controls">
+                    <div class="control-group">
+                         <label>S3 Project URL:</label>
+                         <input type="text" id="s3Url" placeholder="https://bucket.s3.amazonaws.com/project.zip">
+                    </div>
+                    <button class="btn" onclick="downloadProject()" id="downloadBtn" disabled>Download Project</button>
+               </div>
+
+               <div class="file-tree">
+                    <h3>Files</h3>
+                    <div id="fileList"></div>
+                    <div style="margin-top: 0.5rem;">
+                         <button class="btn btn-sm" onclick="refreshFiles()" id="refreshBtn" disabled>Refresh</button>
+                         <button class="btn btn-sm" onclick="createFile()" id="createBtn" disabled>New File</button>
+                    </div>
+               </div>
+
+               <div class="server-info" id="serverInfo">
+                    <div>Server: Not connected</div>
+               </div>
+          </div>
+
+          <div class="main-content">
+               <div class="editor-area">
+                    <textarea id="editor" class="editor-content"
+                         placeholder="Connect to server and select a file to start editing..."></textarea>
+               </div>
+
+               <div class="terminal-area">
+                    <div
+                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                         <span style="font-size: 12px; color: #969696;">Terminal</span>
+                         <button class="btn btn-sm" onclick="clearTerminal()" id="clearBtn" disabled>Clear</button>
+                    </div>
+                    <div id="terminalOutput" class="terminal-output"></div>
+                    <input type="text" id="terminalInput" class="terminal-input"
+                         placeholder="Connect to server to use terminal..." disabled>
+               </div>
+          </div>
+     </div>
+
+     <script>
+          let socket = null, currentFile = null, terminalId = null;
+          const status = document.getElementById('status');
+          const fileList = document.getElementById('fileList');
+          const editor = document.getElementById('editor');
+          const terminalOutput = document.getElementById('terminalOutput');
+          const terminalInput = document.getElementById('terminalInput');
+          const s3UrlInput = document.getElementById('s3Url');
+          const serverUrlInput = document.getElementById('serverUrl');
+          const connectBtn = document.getElementById('connectBtn');
+          const serverInfo = document.getElementById('serverInfo');
+
+          function connectToServer() {
+               const url = serverUrlInput.value.trim();
+               if (!url) return alert('Please enter a server URL');
+
+               if (socket) socket.disconnect();
+               updateStatus('connecting', 'Connecting...');
+               connectBtn.disabled = true;
+               connectBtn.textContent = 'Connecting...';
+
+               socket = io(url, { transports: ['websocket', 'polling'] });
+               setupSocketListeners();
+          }
+
+          function setupSocketListeners() {
+               socket.on('connect', () => {
+                    updateStatus('connected', 'Connected!');
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connected';
+                    enableControls(true);
+                    startTerminal();
+                    loadFiles();
+               });
+
+               socket.on('disconnect', () => {
+                    updateStatus('disconnected', 'Disconnected');
+                    connectBtn.textContent = 'Reconnect';
+                    enableControls(false);
+               });
+
+               socket.on('connect_error', (error) => {
+                    updateStatus('disconnected', `Failed: ${error.message}`);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect';
+               });
+
+               socket.on('server:info', updateServerInfo);
+
+               socket.on('terminal:started', (data) => {
+                    terminalId = data.terminalId;
+                    terminalOutput.innerHTML += `Terminal started (ID: ${terminalId})\n`;
+                    terminalInput.disabled = false;
+                    terminalInput.placeholder = 'Type commands here...';
+               });
+
+               socket.on('terminal:output', (data) => {
+                    const cleanedOutput = cleanTerminalOutput(data.data);
+                    terminalOutput.innerHTML += cleanedOutput;
+                    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+               });
+
+               socket.on('file:read:response', (data) => {
+                    if (data.success && data.isDirectory) {
+                         displayFiles(data.files);
+                    } else if (data.success && !data.isDirectory) {
+                         editor.value = data.content;
+                         currentFile = data.path;
+                         editor.placeholder = `Editing: ${data.path}`;
+                    } else {
+                         terminalOutput.innerHTML += `Error: ${data.error}\n`;
+                    }
+               });
+
+               socket.on('file:write:response', (data) => {
+                    terminalOutput.innerHTML += data.success ?
+                         `File saved: ${data.path}\n` : `Error: ${data.error}\n`;
+               });
+
+               socket.on('file:create:response', (data) => {
+                    if (data.success) {
+                         terminalOutput.innerHTML += `File created: ${data.path}\n`;
+                         loadFiles();
+                    } else {
+                         terminalOutput.innerHTML += `Error: ${data.error}\n`;
+                    }
+               });
+
+               socket.on('file:changed', (data) => {
+                    if (data.path === currentFile && data.userId !== socket.id) {
+                         terminalOutput.innerHTML += `📝 ${data.path} modified by another user\n`;
+                    }
+               });
+
+               socket.on('project:downloaded', (data) => {
+                    terminalOutput.innerHTML += `📦 New project: ${data.projectName}\n`;
+                    loadFiles();
+               });
+          }
+
+          function updateStatus(type, message) {
+               status.textContent = message;
+               status.className = `status-bar ${type}`;
+          }
+
+          function enableControls(enabled) {
+               ['downloadBtn', 'refreshBtn', 'createBtn', 'clearBtn'].forEach(id =>
+                    document.getElementById(id).disabled = !enabled);
+               terminalInput.disabled = !enabled;
+          }
+
+          function clearTerminal() {
+               terminalOutput.innerHTML = '';
+          }
+
+          function updateServerInfo(data) {
+               serverInfo.innerHTML = `
+                    <div><strong>Server Info:</strong></div>
+                    <div>Workspace: ${data.workspaceBase}</div>
+                    <div>Java: ${data.javaVersion || 'N/A'}</div>
+                    <div>Node.js: ${data.nodeVersion || 'N/A'}</div>`;
+          }
+
+          function cleanTerminalOutput(text) {
+               // Remove common ANSI escape sequences that cause clutter
+               let cleaned = text
+                    // Remove bracketed paste mode sequences
+                    .replace(/\x1b\[(\?2004[hl])/g, '')
+                    // Remove OSC sequences (like title changes)
+                    .replace(/\x1b\][0-9];[^\x07\x1b]*(\x07|\x1b\\)/g, '')
+                    // Remove cursor positioning sequences
+                    .replace(/\x1b\[[0-9]*[ABCD]/g, '')
+                    .replace(/\x1b\[[0-9;]*[HfF]/g, '')
+                    // Remove erase sequences
+                    .replace(/\x1b\[[0-9]*[JK]/g, '')
+                    // Replace carriage returns properly
+                    .replace(/\r\n/g, '\n')
+                    .replace(/\r/g, '\n');
+
+               // Convert ANSI colors to HTML spans
+               const colorMap = {
+                    '30': '#000000', '31': '#ff0000', '32': '#00ff00', '33': '#ffff00',
+                    '34': '#0080ff', '35': '#ff00ff', '36': '#00ffff', '37': '#ffffff',
+                    '90': '#808080', '91': '#ff8080', '92': '#80ff80', '93': '#ffff80',
+                    '94': '#8080ff', '95': '#ff80ff', '96': '#80ffff', '97': '#ffffff'
+               };
+
+               // Handle color codes
+               cleaned = cleaned.replace(/\x1b\[([0-9;]*m)/g, (match, codes) => {
+                    if (codes === '0m' || codes === 'm') return '</span>';
+
+                    const parts = codes.replace('m', '').split(';');
+                    let styles = [];
+
+                    for (let part of parts) {
+                         if (part === '1') styles.push('font-weight: bold');
+                         else if (part === '4') styles.push('text-decoration: underline');
+                         else if (colorMap[part]) styles.push(`color: ${colorMap[part]}`);
+                    }
+
+                    return styles.length ? `<span style="${styles.join('; ')}">` : '';
+               });
+
+               // Clean up any remaining escape sequences
+               cleaned = cleaned.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+
+               return cleaned;
+          }
+
+          function startTerminal() {
+               if (socket?.connected) socket.emit('terminal:start', {});
+          }
+
+          terminalInput.addEventListener('keypress', (e) => {
+               if (e.key === 'Enter' && socket?.connected) {
+                    socket.emit('terminal:input', {
+                         terminalId, input: terminalInput.value + '\r'
+                    });
+                    terminalInput.value = '';
+               }
+          });
+
+          function loadFiles() {
+               if (socket?.connected) socket.emit('file:read', { path: '.' });
+          }
+
+          function displayFiles(files) {
+               fileList.innerHTML = '';
+               files.forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = 'file-item';
+                    div.textContent = `${file.isDirectory ? '📁' : '📄'} ${file.name}`;
+                    div.onclick = () => selectFile(file);
+                    fileList.appendChild(div);
+               });
+          }
+
+          function selectFile(file) {
+               document.querySelectorAll('.file-item').forEach(item =>
+                    item.classList.remove('selected'));
+               event.target.classList.add('selected');
+               if (socket?.connected) socket.emit('file:read', { path: file.path });
+          }
+
+          function saveCurrentFile() {
+               if (currentFile && socket?.connected) {
+                    socket.emit('file:write', { path: currentFile, content: editor.value });
+               }
+          }
+
+          let saveTimeout;
+          editor.addEventListener('input', () => {
+               if (currentFile) {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveCurrentFile, 2000);
+               }
+          });
+
+          document.addEventListener('keydown', (e) => {
+               if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    saveCurrentFile();
+               }
+          });
+
+          function downloadProject() {
+               const s3Url = s3UrlInput.value.trim();
+               if (!s3Url) return alert('Please enter an S3 URL');
+               if (!socket?.connected) return alert('Not connected');
+
+               updateStatus('connecting', 'Downloading...');
+               const httpUrl = serverUrlInput.value.replace('ws://', 'http://').replace('wss://', 'https://');
+
+               fetch(`${httpUrl}/api/download-project`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ s3Url })
+               })
+                    .then(res => res.json())
+                    .then(data => {
+                         terminalOutput.innerHTML += data.success ?
+                              `✅ Downloaded: ${data.projectName}\n` :
+                              `❌ Failed: ${data.error}\n`;
+                         if (data.success) loadFiles();
+                         updateStatus('connected', 'Connected!');
+                    })
+                    .catch(err => {
+                         terminalOutput.innerHTML += `❌ Error: ${err.message}\n`;
+                         updateStatus('connected', 'Connected!');
+                    });
+          }
+
+          function refreshFiles() { loadFiles(); }
+
+          function createFile() {
+               const fileName = prompt('Enter file name:');
+               if (fileName && socket?.connected) {
+                    socket.emit('file:create', { path: fileName, isDirectory: false });
+               }
+          }
+
+          enableControls(false);
+     </script>
+</body>
+
+</html>

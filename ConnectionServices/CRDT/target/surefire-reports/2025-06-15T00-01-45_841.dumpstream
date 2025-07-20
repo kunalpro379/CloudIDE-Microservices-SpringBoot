@@ -1,0 +1,5 @@
+# Created at 2025-06-15T00:01:47.731
+Boot Manifest-JAR contains absolute paths in classpath 'E:\Most_Important_Data\CODE FOR LIFE\CloudCodeEditor\CloudIDE\CollaborationService\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+

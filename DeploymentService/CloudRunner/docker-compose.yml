@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  cloud-ide-server:
+    build: .
+    container_name: cloud-ide-server
+    ports:
+      - "3000:3000"
+    environment:
+      # S3 Configuration
+      - S3_URL=${S3_URL:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+
+      # Server Configuration
+      - PORT=3000
+      - IDLE_TIMEOUT=${IDLE_TIMEOUT:-1800000} # 30 minutes default
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+
+      # Java Configuration
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - JAVA_OPTS=${JAVA_OPTS:--Xmx2g -Xms512m}
+
+      # Node.js Configuration
+      - NODE_ENV=${NODE_ENV:-production}
+
+    volumes:
+      - app-workspace:/app
+
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+    # Health check
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  app-workspace:
+    driver: local
+
+# For production deployment, add:
+networks:
+  default:
+    driver: bridge
