@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Text Editor</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Collaborative Text Editor</h1>
+        <div class="user-section">
+            <input type="text" id="username" placeholder="Enter your username">
+            <button id="join-btn">Join Document</button>
+        </div>
+        <div class="editor-section" id="editor-container" style="display: none;">
+            <div class="toolbar">
+                <button id="bold-btn">B</button>
+                <button id="italic-btn">I</button>
+            </div>
+            <textarea id="collaborative-editor" rows="20" cols="80"></textarea>
+            <div id="users-online">
+                <h3>Users Online:</h3>
+                <ul id="user-list"></ul>
+            </div>
+        </div>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>

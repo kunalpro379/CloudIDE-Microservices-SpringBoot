@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Cloud IDE - Multi-user Collaborative Environment</title>
+     <script src="/socket.io/socket.io.js"></script>
+     <style>
+          * {
+               margin: 0;
+               padding: 0;
+               box-sizing: border-box;
+          }
+
+          body {
+               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               background: #1e1e1e;
+               color: #d4d4d4;
+               height: 100vh;
+               display: flex;
+               flex-direction: column;
+          }
+
+          .header {
+               background: #2d2d30;
+               padding: 1rem;
+               border-bottom: 1px solid #3e3e42;
+          }
+
+          .container {
+               display: flex;
+               flex: 1;
+               overflow: hidden;
+          }
+
+          .sidebar {
+               width: 300px;
+               background: #252526;
+               border-right: 1px solid #3e3e42;
+               padding: 1rem;
+               overflow-y: auto;
+          }
+
+          .main-content {
+               flex: 1;
+               display: flex;
+               flex-direction: column;
+          }
+
+          .editor-area {
+               flex: 1;
+               background: #1e1e1e;
+               position: relative;
+               overflow: hidden;
+          }
+
+          .terminal-area {
+               height: 300px;
+               background: #0c0c0c;
+               border-top: 1px solid #3e3e42;
+               padding: 0.5rem;
+               overflow-y: auto;
+               font-family: 'Courier New', monospace;
+          }
+
+          .file-tree {
+               margin-bottom: 1rem;
+          }
+
+          .file-item {
+               padding: 0.25rem 0.5rem;
+               cursor: pointer;
+               user-select: none;
+          }
+
+          .file-item:hover {
+               background: #2a2d2e;
+          }
+
+          .file-item.selected {
+               background: #094771;
+          }
+
+          .terminal-output {
+               white-space: pre-wrap;
+               font-size: 14px;
+               line-height: 1.4;
+          }
+
+          .terminal-input {
+               width: 100%;
+               background: transparent;
+               border: none;
+               color: #d4d4d4;
+               font-family: 'Courier New', monospace;
+               font-size: 14px;
+               outline: none;
+               margin-top: 0.5rem;
+          }
+
+          .status-bar {
+               background: #007acc;
+               color: white;
+               padding: 0.5rem;
+               font-size: 12px;
+          }
+
+          .editor-content {
+               width: 100%;
+               height: 100%;
+               background: #1e1e1e;
+               color: #d4d4d4;
+               border: none;
+               resize: none;
+               font-family: 'Courier New', monospace;
+               font-size: 14px;
+               line-height: 1.5;
+               padding: 1rem;
+               outline: none;
+          }
+
+          .project-controls {
+               margin-bottom: 1rem;
+               padding-bottom: 1rem;
+               border-bottom: 1px solid #3e3e42;
+          }
+
+          .control-group {
+               margin-bottom: 0.5rem;
+          }
+
+          .control-group label {
+               display: block;
+               margin-bottom: 0.25rem;
+               font-size: 12px;
+               color: #969696;
+          }
+
+          .control-group input {
+               width: 100%;
+               background: #3c3c3c;
+               border: 1px solid #5a5a5a;
+               color: #d4d4d4;
+               padding: 0.5rem;
+               border-radius: 3px;
+          }
+
+          .btn {
+               background: #0e639c;
+               color: white;
+               border: none;
+               padding: 0.5rem 1rem;
+               border-radius: 3px;
+               cursor: pointer;
+               font-size: 12px;
+          }
+
+          .btn:hover {
+               background: #1177bb;
+          }
+
+          .btn-sm {
+               padding: 0.25rem 0.5rem;
+               font-size: 11px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="header">
+          <h1>🚀 Cloud IDE - Multi-user Collaborative Environment</h1>
+          <div class="status-bar" id="status">Connecting...</div>
+     </div>
+
+     <div class="container">
+          <div class="sidebar">
+               <div class="project-controls">
+                    <div class="control-group">
+                         <label>S3 Project URL:</label>
+                         <input type="text" id="s3Url" placeholder="https://bucket.s3.amazonaws.com/project.zip">
+                    </div>
+                    <button class="btn" onclick="downloadProject()">Download Project</button>
+               </div>
+
+               <div class="file-tree">
+                    <h3>Files</h3>
+                    <div id="fileList"></div>
+                    <div style="margin-top: 0.5rem;">
+                         <button class="btn btn-sm" onclick="refreshFiles()">Refresh</button>
+                         <button class="btn btn-sm" onclick="createFile()">New File</button>
+                    </div>
+               </div>
+          </div>
+
+          <div class="main-content">
+               <div class="editor-area">
+                    <textarea id="editor" class="editor-content"
+                         placeholder="Select a file to start editing..."></textarea>
+               </div>
+
+               <div class="terminal-area">
+                    <div id="terminalOutput" class="terminal-output"></div>
+                    <input type="text" id="terminalInput" class="terminal-input" placeholder="Type commands here...">
+               </div>
+          </div>
+     </div>
+
+     <script>
+          // Initialize Socket.IO connection
+          const socket = io();
+          let currentFile = null;
+          let terminalId = null;
+
+          // DOM elements
+          const status = document.getElementById('status');
+          const fileList = document.getElementById('fileList');
+          const editor = document.getElementById('editor');
+          const terminalOutput = document.getElementById('terminalOutput');
+          const terminalInput = document.getElementById('terminalInput');
+          const s3UrlInput = document.getElementById('s3Url');
+
+          // Connection status
+          socket.on('connect', () => {
+               status.textContent = 'Connected - Ready to collaborate!';
+               status.style.background = '#16825d';
+               startTerminal();
+               loadFiles();
+          });
+
+          socket.on('disconnect', () => {
+               status.textContent = 'Disconnected - Attempting to reconnect...';
+               status.style.background = '#d73a49';
+          });
+
+          // Terminal functionality
+          function startTerminal() {
+               socket.emit('terminal:start', {});
+          }
+
+          socket.on('terminal:started', (data) => {
+               terminalId = data.terminalId;
+               terminalOutput.innerHTML += `Terminal started (ID: ${terminalId})\n`;
+          });
+
+          socket.on('terminal:output', (data) => {
+               terminalOutput.innerHTML += data.data;
+               terminalOutput.scrollTop = terminalOutput.scrollHeight;
+          });
+
+          socket.on('terminal:exit', (data) => {
+               terminalOutput.innerHTML += `\nTerminal ${data.terminalId} exited.\n`;
+          });
+
+          // Terminal input handling
+          terminalInput.addEventListener('keypress', (e) => {
+               if (e.key === 'Enter') {
+                    const command = terminalInput.value;
+                    socket.emit('terminal:input', {
+                         terminalId: terminalId,
+                         input: command + '\r'
+                    });
+                    terminalInput.value = '';
+               }
+          });
+
+          // File operations
+          function loadFiles() {
+               socket.emit('file:read', { path: '.' });
+          }
+
+          socket.on('file:read:response', (data) => {
+               if (data.success && data.isDirectory) {
+                    displayFiles(data.files);
+               } else if (data.success && !data.isDirectory) {
+                    editor.value = data.content;
+                    currentFile = data.path;
+               } else {
+                    console.error('Error reading file:', data.error);
+                    terminalOutput.innerHTML += `Error: ${data.error}\n`;
+               }
+          });
+
+          function displayFiles(files) {
+               fileList.innerHTML = '';
+               files.forEach(file => {
+                    const fileElement = document.createElement('div');
+                    fileElement.className = 'file-item';
+                    fileElement.textContent = `${file.isDirectory ? '📁' : '📄'} ${file.name}`;
+                    fileElement.onclick = () => selectFile(file);
+                    fileList.appendChild(fileElement);
+               });
+          }
+
+          function selectFile(file) {
+               // Remove previous selection
+               document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+               });
+
+               // Add selection to clicked item
+               event.target.classList.add('selected');
+
+               if (file.isDirectory) {
+                    socket.emit('file:read', { path: file.path });
+               } else {
+                    socket.emit('file:read', { path: file.path });
+               }
+          }
+
+          function saveCurrentFile() {
+               if (currentFile) {
+                    socket.emit('file:write', {
+                         path: currentFile,
+                         content: editor.value
+                    });
+               }
+          }
+
+          socket.on('file:write:response', (data) => {
+               if (data.success) {
+                    terminalOutput.innerHTML += `File saved: ${data.path}\n`;
+               } else {
+                    terminalOutput.innerHTML += `Error saving file: ${data.error}\n`;
+               }
+          });
+
+          // Auto-save on editor change (debounced)
+          let saveTimeout;
+          editor.addEventListener('input', () => {
+               clearTimeout(saveTimeout);
+               saveTimeout = setTimeout(saveCurrentFile, 2000); // Save after 2 seconds of inactivity
+          });
+
+          // Keyboard shortcuts
+          document.addEventListener('keydown', (e) => {
+               if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    saveCurrentFile();
+               }
+          });
+
+          // Project download
+          function downloadProject() {
+               const s3Url = s3UrlInput.value.trim();
+               if (!s3Url) {
+                    alert('Please enter an S3 URL');
+                    return;
+               }
+
+               status.textContent = 'Downloading project...';
+               status.style.background = '#e36209';
+
+               fetch('/api/download-project', {
+                    method: 'POST',
+                    headers: {
+                         'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ s3Url })
+               })
+                    .then(response => response.json())
+                    .then(data => {
+                         if (data.success) {
+                              terminalOutput.innerHTML += `✅ Project downloaded: ${data.projectName}\n`;
+                              loadFiles(); // Refresh file list
+                         } else {
+                              terminalOutput.innerHTML += `❌ Download failed: ${data.error}\n`;
+                         }
+                         status.textContent = 'Connected - Ready to collaborate!';
+                         status.style.background = '#16825d';
+                    })
+                    .catch(error => {
+                         terminalOutput.innerHTML += `❌ Download error: ${error.message}\n`;
+                         status.textContent = 'Connected - Ready to collaborate!';
+                         status.style.background = '#16825d';
+                    });
+          }
+
+          function refreshFiles() {
+               loadFiles();
+          }
+
+          function createFile() {
+               const fileName = prompt('Enter file name:');
+               if (fileName) {
+                    socket.emit('file:create', {
+                         path: fileName,
+                         isDirectory: false
+                    });
+               }
+          }
+
+          socket.on('file:create:response', (data) => {
+               if (data.success) {
+                    terminalOutput.innerHTML += `File created: ${data.path}\n`;
+                    loadFiles(); // Refresh file list
+               } else {
+                    terminalOutput.innerHTML += `Error creating file: ${data.error}\n`;
+               }
+          });
+
+          // Collaborative features
+          socket.on('file:changed', (data) => {
+               if (data.path === currentFile && data.userId !== socket.id) {
+                    terminalOutput.innerHTML += `📝 File ${data.path} was modified by another user\n`;
+                    // Optionally reload the file content
+               }
+          });
+
+          socket.on('project:downloaded', (data) => {
+               terminalOutput.innerHTML += `📦 New project available: ${data.projectName}\n`;
+               loadFiles(); // Refresh file list
+          });
+     </script>
+</body>
+
+</html>

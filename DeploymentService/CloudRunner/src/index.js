@@ -4,6 +4,8 @@ const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs-extra');
 const jwt = require('jsonwebtoken');
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 
 const terminalService = require('./services/terminalService');
 const fileService = require('./services/fileService');
@@ -331,6 +333,25 @@ app.get('/api/info', (req, res) => {
           capabilities: ['terminal', 'files', 's3-download', 'java', 'nodejs'],
           protocols: ['websocket', 'rest']
      });
+});
+
+// Test route to build and verify Java projects
+app.get('/test', async (req, res) => {
+    try {
+        const base = projectWorkspace + '/JavaContainer';
+        await exec(`cd ${base}/simple-maven ; mvn clean package -q`);
+        await exec(`cd ${base}/spring-boot ; mvn clean package -q`);
+        await exec(`cd ${base}/gradle-kotlin ; gradle build -q --stacktrace`);
+        return res.json({ success: true, message: 'All projects built successfully' });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: 'Build failed',
+            error: err.message,
+            stdout: err.stdout,
+            stderr: err.stderr
+        });
+    }
 });
 
 // Start server

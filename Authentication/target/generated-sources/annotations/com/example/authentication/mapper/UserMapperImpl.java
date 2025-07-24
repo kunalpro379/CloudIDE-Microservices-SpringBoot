@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-07-20T23:35:42+0530",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 17.0.9 (OpenLogic)"
+    date = "2025-07-24T22:55:14+0530",
+    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.42.50.v20250628-1110, environment: Java 21.0.7 (Eclipse Adoptium)"
 )
 @Component
 public class UserMapperImpl implements UserMapper {
@@ -21,18 +21,18 @@ public class UserMapperImpl implements UserMapper {
 
         UserDTO.UserDTOBuilder userDTO = UserDTO.builder();
 
+        userDTO.createdAt( user.getCreatedAt() );
+        userDTO.email( user.getEmail() );
+        userDTO.emailVerified( user.getEmailVerified() );
+        userDTO.firstName( user.getFirstName() );
+        userDTO.isActive( user.getIsActive() );
+        userDTO.lastLogin( user.getLastLogin() );
+        userDTO.lastName( user.getLastName() );
+        userDTO.oauthProvider( user.getOauthProvider() );
+        userDTO.profileImageUrl( user.getProfileImageUrl() );
+        userDTO.updatedAt( user.getUpdatedAt() );
         userDTO.userId( user.getUserId() );
         userDTO.username( user.getUsername() );
-        userDTO.email( user.getEmail() );
-        userDTO.firstName( user.getFirstName() );
-        userDTO.lastName( user.getLastName() );
-        userDTO.profileImageUrl( user.getProfileImageUrl() );
-        userDTO.emailVerified( user.getEmailVerified() );
-        userDTO.isActive( user.getIsActive() );
-        userDTO.oauthProvider( user.getOauthProvider() );
-        userDTO.createdAt( user.getCreatedAt() );
-        userDTO.updatedAt( user.getUpdatedAt() );
-        userDTO.lastLogin( user.getLastLogin() );
 
         return userDTO.build();
     }
@@ -45,18 +45,18 @@ public class UserMapperImpl implements UserMapper {
 
         User.UserBuilder user = User.builder();
 
-        user.userId( userDTO.getUserId() );
-        user.email( userDTO.getEmail() );
-        user.username( userDTO.getUsername() );
-        user.firstName( userDTO.getFirstName() );
-        user.lastName( userDTO.getLastName() );
-        user.profileImageUrl( userDTO.getProfileImageUrl() );
-        user.emailVerified( userDTO.getEmailVerified() );
-        user.isActive( userDTO.getIsActive() );
-        user.oauthProvider( userDTO.getOauthProvider() );
         user.createdAt( userDTO.getCreatedAt() );
-        user.updatedAt( userDTO.getUpdatedAt() );
+        user.email( userDTO.getEmail() );
+        user.emailVerified( userDTO.getEmailVerified() );
+        user.firstName( userDTO.getFirstName() );
+        user.isActive( userDTO.getIsActive() );
         user.lastLogin( userDTO.getLastLogin() );
+        user.lastName( userDTO.getLastName() );
+        user.oauthProvider( userDTO.getOauthProvider() );
+        user.profileImageUrl( userDTO.getProfileImageUrl() );
+        user.updatedAt( userDTO.getUpdatedAt() );
+        user.userId( userDTO.getUserId() );
+        user.username( userDTO.getUsername() );
 
         return user.build();
     }
