@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Code Editor - Session</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Cloud Code Editor</h1>
+            <div class="session-info">
+                <span id="sessionId">Session: Loading...</span>
+                <span id="userInfo">User: Anonymous</span>
+                <span id="connectionStatus" class="status disconnected">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Code Editor Section -->
+            <section class="code-section">
+                <div class="editor-header">
+                    <h2>Collaborative Code Editor</h2>
+                    <div class="active-users" id="activeUsers">
+                        <!-- Active users will be displayed here -->
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <textarea id="codeEditor" placeholder="Start coding collaboratively..."></textarea>
+                    <div class="editor-status">
+                        <span id="editorStatus">Ready</span>
+                        <span id="documentStatus">Synced</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chat Section -->
+            <section class="chat-section">
+                <div class="chat-header">
+                    <h2>Session Chat</h2>
+                    <div class="chat-controls">
+                        <button id="clearChat">Clear</button>
+                        <button id="toggleTyping">Toggle Typing</button>
+                    </div>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages will be displayed here -->
+                </div>
+                
+                <!-- Typing Indicators -->
+                <div class="typing-indicators" id="typingIndicators">
+                    <!-- Typing indicators will be shown here -->
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="chat-input-container">
+                    <input type="text" id="chatInput" placeholder="Type your message..." />
+                    <button id="sendButton">Send</button>
+                    <button id="sendCodeButton">Send Code</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Participants Panel -->
+        <aside class="participants-panel">
+            <h3>Session Participants</h3>
+            <div id="participantsList">
+                <!-- Participants will be listed here -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2>Join Session</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="sessionIdInput">Session ID:</label>
+                    <input type="text" id="sessionIdInput" placeholder="Enter session ID or leave blank for new session">
+                </div>
+                <button type="submit">Join Session</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
